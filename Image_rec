@@ -1,0 +1,116 @@
+import os
+os.environ["PATH"] += os.pathsep + 'C:/Program Files (x86)/Graphviz2.38/bin/'
+# MODEL
+from keras.models import Sequential
+from keras.layers import Conv2D, MaxPooling2D
+from keras.layers import Activation, Dropout, Flatten, Dense
+from keras.callbacks import TensorBoard
+from keras.optimizers import adam
+from matplotlib import pyplot
+
+import random
+import numpy as np
+
+plt=pyplot
+
+model = Sequential()
+model.add(Conv2D(32, (3, 3), input_shape=(300, 300, 3)))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+
+model.add(Conv2D(32, (3, 3)))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+
+model.add(Conv2D(64, (3, 3)))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+
+# the model so far outputs 3D feature maps (height, width, features)
+
+model.add(Flatten())  # this converts our 3D feature maps to 1D feature vectors
+model.add(Dense(512))
+model.add(Activation('relu'))
+model.add(Dropout(0.2))
+model.add(Dense(2))
+model.add(Activation('softmax'))
+# COMPILE
+
+model.compile(loss='categorical_crossentropy',
+              optimizer=adam(lr=0.0001, decay=1e-6),#0.0001
+              metrics=['accuracy'])
+model.load_weights('50_epochs.h5')
+tensorboard = TensorBoard(log_dir="logs/stage1")
+
+#from keras.utils import plot_model
+#plot_model(model,show_shapes=True, show_layer_names=True ,expand_nested=True, to_file='model.png')
+print('Model Ready')
+
+from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
+
+batch_size = 200
+
+# this is the augmentation configuration we will use for training
+train_datagen = ImageDataGenerator(
+        rescale=1./255,
+        shear_range=0.2,
+        zoom_range=0.2,
+        horizontal_flip=True)
+
+# this is the augmentation configuration we will use for testing:
+# only rescaling
+test_datagen = ImageDataGenerator(rescale=1./255)
+
+# this is a generator that will read pictures found in subfolers of 'data/train', and indefinitely generate
+# batches of augmented image data
+train_generator = train_datagen.flow_from_directory(
+        'train',  # this is the target directory
+        target_size=(300, 300),  # all images will be resized to 300x300
+        batch_size=batch_size,
+        )  # since we use binary_crossentropy loss, we need binary labels
+
+# this is a similar generator, for validation data
+validation_generator = test_datagen.flow_from_directory(
+        'test',
+        target_size=(300, 300),
+        batch_size=30 #batch_size,
+        ,shuffle=False
+
+        )
+
+print('Data Ready \nStart Train')
+Train=0
+
+if Train==1:
+        print('Training')
+# TRAINING
+        model.fit_generator(
+             train_generator,
+                steps_per_epoch=1 ,#35 or 7
+        #400 // batch_size,
+        epochs=1,
+        validation_data=validation_generator,
+        validation_steps=2,
+        shuffle=True,
+        verbose=1)
+
+else:
+        print('Not Training')
+
+classes = model.predict(validation_generator)
+#print(classes[:50])
+x,y = validation_generator.next()
+xx=0
+for i in classes:
+        xx += 1
+        image = x[xx]
+        plt.imshow(image)
+        plt.show()
+        if i[0]>0.5:
+                print(xx,y[xx],'chef',' ')
+        else:
+                print(xx,y[xx],'doctor',' ')
+
+
+#print(classes)
+#model.save_weights('50_epochs.h5')  # always save your weights after training or during training
